@@ -1,15 +1,17 @@
 import torch
-from torch.autograd import Function, Variable
+from torch.autograd import Function
+
 
 class DiceCoeff(Function):
     """Dice coeff for individual examples"""
 
     def forward(self, input, target):
         self.save_for_backward(input, target)
-        self.inter = torch.dot(input.view(-1), target.view(-1)) + 0.0001
-        self.union = torch.sum(input) + torch.sum(target) + 0.0001
+        eps = 0.0001
+        self.inter = torch.dot(input.view(-1), target.view(-1))
+        self.union = torch.sum(input) + torch.sum(target) + eps
 
-        t = 2 * self.inter.float() / self.union.float()
+        t = (2 * self.inter.float() + eps) / self.union.float()
         return t
 
     # This function has only a single output, so it gets only one gradient
@@ -19,8 +21,8 @@ class DiceCoeff(Function):
         grad_input = grad_target = None
 
         if self.needs_input_grad[0]:
-            grad_input = grad_output * 2 * (target * self.union + self.inter) \
-                         / self.union * self.union
+            grad_input = grad_output * 2 * (target * self.union - self.inter) \
+                         / (self.union * self.union)
         if self.needs_input_grad[1]:
             grad_target = None
 
